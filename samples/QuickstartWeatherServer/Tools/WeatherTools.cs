@@ -59,14 +59,14 @@ public sealed class WeatherTools
     }
 
     [McpServerTool, Description("Simula el envío de un correo electrónico.")]
-    public static Task<string> SendEmail(
+    public static async Task<string> SendEmail(
     [Description("Dirección de correo electrónico del destinatario.")] string to,
     [Description("Asunto del correo.")] string subject,
     [Description("Cuerpo del mensaje.")] string body)
     {
         var fechaEnvio = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
         var mensaje = $"Correo enviado exitosamente a {to} el {fechaEnvio}.\nAsunto: {subject}";
-        return Task.FromResult(mensaje);
+        return mensaje;
     }
 
 }

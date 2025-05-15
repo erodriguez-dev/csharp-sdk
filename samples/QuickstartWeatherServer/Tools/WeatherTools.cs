@@ -58,7 +58,7 @@ public sealed class WeatherTools
                 """));
     }
 
-    [McpServerTool, Description("Simula el envío de un correo electrónico.")]
+    [McpServerTool, Description("Envío de un correo electrónico.")]
     public static async Task<string> SendEmail(
     [Description("Dirección de correo electrónico del destinatario.")] string to,
     [Description("Asunto del correo.")] string subject,
@@ -67,6 +67,44 @@ public sealed class WeatherTools
         var fechaEnvio = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
         var mensaje = $"Correo enviado exitosamente a {to} el {fechaEnvio}.\nAsunto: {subject}";
         return mensaje;
+    }
+
+    [McpServerTool, Description("Obtiene información de los transportes registrados, con opciones de filtrado por nombre, código o estado.")]
+    public static async Task<string> GetTransports(
+           HttpClient client,
+           [Description("Texto de búsqueda para filtrar por nombre o código. Opcional.")] string? search = null,
+           [Description("Filtrar solo transportes activos. Por defecto: true.")] bool onlyActive = true)
+    {
+        // Construcción dinámica del query string
+        var queryParams = new List<string>();
+        if (!string.IsNullOrWhiteSpace(search))
+            queryParams.Add($"search={Uri.EscapeDataString(search)}");
+        var url = "/backend/api/v1.0/business/transports";
+        if (queryParams.Any())
+            url += "?" + string.Join("&", queryParams);
+
+        // Realizar la solicitud HTTP
+        using var jsonDocument = await client.ReadJsonDocumentAsync(url);
+        var transportsArray = jsonDocument.RootElement.EnumerateArray().ToList(); // Convierte el enumerador a lista
+
+        IEnumerable<JsonElement> transportsFiltered = transportsArray;
+
+        // Filtrado por estado activo si se solicita
+        if (onlyActive)
+            transportsFiltered = transportsArray.Where(t => t.GetProperty("is_active").GetBoolean());
+
+
+        // Preparar respuesta
+        if (!transportsFiltered.Any())
+            return "No se encontraron transportes que coincidan con los criterios especificados.";
+
+        return string.Join("\n---\n", transportsFiltered.Select(t =>
+            $"""
+            Código: {t.GetProperty("code").GetString()}
+            Nombre: {t.GetProperty("name").GetString()}
+            RIF: {t.GetProperty("tax_identification").GetString()}
+            Estado: {(t.GetProperty("is_active").GetBoolean() ? "Activo" : "Inactivo")}
+            """));
     }
 
 }

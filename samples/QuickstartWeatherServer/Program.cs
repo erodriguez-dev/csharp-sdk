@@ -10,6 +10,7 @@ builder.Services.AddMcpServer()
     .WithStdioServerTransport()
     .WithTools<WeatherTools>();
 
+
 builder.Logging.AddConsole(options =>
 {
     options.LogToStandardErrorThreshold = LogLevel.Trace;
@@ -21,5 +22,6 @@ builder.Services.AddSingleton(_ =>
     client.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("weather-tool", "1.0"));
     return client;
 });
+
 
 await builder.Build().RunAsync();

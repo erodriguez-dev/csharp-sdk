@@ -105,5 +105,40 @@ public sealed class WeatherTools
         """));
     }
 
+    [McpServerTool, Description("Obtiene las liquidaciones recientes de viajes. Permite filtrar por ID de transporte.")]
+    public static async Task<string> GetRecentLiquidations(
+    [Description("ID del transporte para filtrar liquidaciones. Si es null, devuelve todas.")] int? idTransport = null)
+    {
+        using var client = new HttpClient();
+        client.BaseAddress = new Uri("https://gocodeart.com");
+
+        var url = "/backend/api/v1.0/logistics/liquidations/recent";
+        using var jsonDocument = await client.ReadJsonDocumentAsync(url);
+        var liquidationsArray = jsonDocument.RootElement.EnumerateArray().ToList();
+
+        // Filtrado opcional por idTransport
+        IEnumerable<JsonElement> filteredLiquidations = liquidationsArray;
+        if (idTransport.HasValue)
+            filteredLiquidations = liquidationsArray.Where(l => l.GetProperty("id_transport").GetInt32() == idTransport.Value);
+
+        if (!filteredLiquidations.Any())
+            return "No se encontraron liquidaciones para los criterios especificados.";
+
+        // Preparar salida legible
+        return string.Join("\n=====\n", filteredLiquidations.Select(l =>
+            $"""
+        Lote: {l.GetProperty("liquidation_batch_id").GetInt32()}
+        Transporte: {l.GetProperty("transport_name").GetString()}
+        Subtotal: {l.GetProperty("subtotal").GetDecimal():N2} {l.GetProperty("currency").GetString()}
+        Total: {l.GetProperty("total").GetDecimal():N2} {l.GetProperty("currency").GetString()}
+        Estado: {l.GetProperty("status").GetString()}
+        Fecha: {l.GetProperty("liquidation_date").GetString()}
+        Detalles:
+        {string.Join("\n", l.GetProperty("details").EnumerateArray().Select(d =>
+                $"  Ruta: {d.GetProperty("route_name").GetString()} | Monto: {d.GetProperty("applied_amount").GetDecimal():N2} | Regla: {d.GetProperty("calculation_details").GetString()}"))}
+        """));
+    }
+
+
 
 }

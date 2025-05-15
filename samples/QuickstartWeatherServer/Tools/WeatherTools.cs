@@ -105,9 +105,9 @@ public sealed class WeatherTools
         """));
     }
 
-    [McpServerTool, Description("Obtiene las liquidaciones recientes de viajes. Permite filtrar por ID de transporte.")]
+    [McpServerTool, Description("Obtiene las liquidaciones recientes de viajes. Permite filtrar por nombre de transporte.")]
     public static async Task<string> GetRecentLiquidations(
-    [Description("ID del transporte para filtrar liquidaciones. Si es null, devuelve todas.")] int? idTransport = null)
+    [Description("Nombre del transporte para filtrar liquidaciones. Si es null o vacío, devuelve todas.")] string? transportName = null)
     {
         using var client = new HttpClient();
         client.BaseAddress = new Uri("https://gocodeart.com");
@@ -116,10 +116,14 @@ public sealed class WeatherTools
         using var jsonDocument = await client.ReadJsonDocumentAsync(url);
         var liquidationsArray = jsonDocument.RootElement.EnumerateArray().ToList();
 
-        // Filtrado opcional por idTransport
+        // Filtrado opcional por nombre de transporte (insensible a mayúsculas/minúsculas)
         IEnumerable<JsonElement> filteredLiquidations = liquidationsArray;
-        if (idTransport.HasValue)
-            filteredLiquidations = liquidationsArray.Where(l => l.GetProperty("id_transport").GetInt32() == idTransport.Value);
+        if (!string.IsNullOrWhiteSpace(transportName))
+            filteredLiquidations = liquidationsArray.Where(l =>
+                string.Equals(
+                    l.GetProperty("transport_name").GetString() ?? string.Empty,
+                    transportName.Trim(),
+                    StringComparison.OrdinalIgnoreCase));
 
         if (!filteredLiquidations.Any())
             return "No se encontraron liquidaciones para los criterios especificados.";
@@ -138,7 +142,4 @@ public sealed class WeatherTools
                 $"  Ruta: {d.GetProperty("route_name").GetString()} | Monto: {d.GetProperty("applied_amount").GetDecimal():N2} | Regla: {d.GetProperty("calculation_details").GetString()}"))}
         """));
     }
-
-
-
 }

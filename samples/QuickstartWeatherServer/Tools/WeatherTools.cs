@@ -105,7 +105,7 @@ public sealed class WeatherTools
         """));
     }
 
-    [McpServerTool, Description("Obtiene las liquidaciones recientes de viajes. Permite filtrar por nombre de transporte.")]
+    [McpServerTool, Description("Obtiene las liquidaciones recientes de viajes. Permite filtrar por nombre de transporte, con búsqueda parcial si no hay coincidencia exacta.")]
     public static async Task<string> GetRecentLiquidations(
     [Description("Nombre del transporte para filtrar liquidaciones. Si es null o vacío, devuelve todas.")] string? transportName = null)
     {
@@ -116,17 +116,29 @@ public sealed class WeatherTools
         using var jsonDocument = await client.ReadJsonDocumentAsync(url);
         var liquidationsArray = jsonDocument.RootElement.EnumerateArray().ToList();
 
-        // Filtrado opcional por nombre de transporte (insensible a mayúsculas/minúsculas)
         IEnumerable<JsonElement> filteredLiquidations = liquidationsArray;
+
         if (!string.IsNullOrWhiteSpace(transportName))
+        {
+            // 1. Búsqueda exacta
             filteredLiquidations = liquidationsArray.Where(l =>
                 string.Equals(
                     l.GetProperty("transport_name").GetString() ?? string.Empty,
                     transportName.Trim(),
                     StringComparison.OrdinalIgnoreCase));
 
-        if (!filteredLiquidations.Any())
-            return "No se encontraron liquidaciones para los criterios especificados.";
+            // 2. Si no hay coincidencia exacta, intentar búsqueda parcial
+            if (!filteredLiquidations.Any())
+            {
+                filteredLiquidations = liquidationsArray.Where(l =>
+                    (l.GetProperty("transport_name").GetString() ?? string.Empty)
+                        .IndexOf(transportName.Trim(), StringComparison.OrdinalIgnoreCase) >= 0);
+            }
+
+            // 3. Si aún no hay coincidencias, devolver toda la data
+            if (!filteredLiquidations.Any())
+                filteredLiquidations = liquidationsArray;
+        }
 
         // Preparar salida legible
         return string.Join("\n=====\n", filteredLiquidations.Select(l =>
@@ -142,4 +154,5 @@ public sealed class WeatherTools
                 $"  Ruta: {d.GetProperty("route_name").GetString()} | Monto: {d.GetProperty("applied_amount").GetDecimal():N2} | Regla: {d.GetProperty("calculation_details").GetString()}"))}
         """));
     }
+
 }

@@ -71,11 +71,13 @@ public sealed class WeatherTools
 
     [McpServerTool, Description("Obtiene información de los transportes registrados, con opciones de filtrado por nombre, código o estado.")]
     public static async Task<string> GetTransports(
-           HttpClient client,
-           [Description("Texto de búsqueda para filtrar por nombre o código. Opcional.")] string? search = null,
-           [Description("Filtrar solo transportes activos. Por defecto: true.")] bool onlyActive = true)
+    [Description("Texto de búsqueda para filtrar por nombre o código. Opcional.")] string? search = null,
+    [Description("Filtrar solo transportes activos. Por defecto: true.")] bool onlyActive = true)
     {
-        // Construcción dinámica del query string
+        // Crear el cliente HTTP aquí (o usar un helper estático si ya tienes uno centralizado)
+        using var client = new HttpClient();
+        client.BaseAddress = new Uri("https://gocodeart.com");
+
         var queryParams = new List<string>();
         if (!string.IsNullOrWhiteSpace(search))
             queryParams.Add($"search={Uri.EscapeDataString(search)}");
@@ -83,28 +85,25 @@ public sealed class WeatherTools
         if (queryParams.Any())
             url += "?" + string.Join("&", queryParams);
 
-        // Realizar la solicitud HTTP
         using var jsonDocument = await client.ReadJsonDocumentAsync(url);
-        var transportsArray = jsonDocument.RootElement.EnumerateArray().ToList(); // Convierte el enumerador a lista
+        var transportsArray = jsonDocument.RootElement.EnumerateArray().ToList();
 
         IEnumerable<JsonElement> transportsFiltered = transportsArray;
 
-        // Filtrado por estado activo si se solicita
         if (onlyActive)
             transportsFiltered = transportsArray.Where(t => t.GetProperty("is_active").GetBoolean());
 
-
-        // Preparar respuesta
         if (!transportsFiltered.Any())
             return "No se encontraron transportes que coincidan con los criterios especificados.";
 
         return string.Join("\n---\n", transportsFiltered.Select(t =>
             $"""
-            Código: {t.GetProperty("code").GetString()}
-            Nombre: {t.GetProperty("name").GetString()}
-            RIF: {t.GetProperty("tax_identification").GetString()}
-            Estado: {(t.GetProperty("is_active").GetBoolean() ? "Activo" : "Inactivo")}
-            """));
+        Código: {t.GetProperty("code").GetString()}
+        Nombre: {t.GetProperty("name").GetString()}
+        RIF: {t.GetProperty("tax_identification").GetString()}
+        Estado: {(t.GetProperty("is_active").GetBoolean() ? "Activo" : "Inactivo")}
+        """));
     }
+
 
 }
